@@ -26,10 +26,10 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { suggestRelatedEntities, type SuggestRelatedEntitiesOutput } from '@/ai/flows/suggest-related-entities';
-import { AiSuggestions } from '@/components/shared/ai-suggestions'; // Updated import path
+import { AiSuggestions } from '@/components/shared/ai-suggestions'; 
 import React, { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, Loader2 } from 'lucide-react';
 
 const customerFormSchema = z.object({
   name: z.string().min(2, { message: 'Name must be at least 2 characters.' }),
@@ -37,7 +37,7 @@ const customerFormSchema = z.object({
   phone: z.string().optional(),
   address: z.string().optional(),
   notes: z.string().optional(),
-  relatedOrganizations: z.string().optional(), // Store as comma-separated string in form
+  relatedOrganizations: z.string().optional(), 
   relatedPeople: z.string().optional(),
   relatedVendors: z.string().optional(),
 });
@@ -49,9 +49,10 @@ interface CustomerFormDialogProps {
   onOpenChange: (isOpen: boolean) => void;
   customer?: Customer | null;
   onSave: (customer: Customer) => void;
+  isSaving?: boolean;
 }
 
-export function CustomerFormDialog({ isOpen, onOpenChange, customer, onSave }: CustomerFormDialogProps) {
+export function CustomerFormDialog({ isOpen, onOpenChange, customer, onSave, isSaving = false }: CustomerFormDialogProps) {
   const { toast } = useToast();
   const [aiSuggestions, setAiSuggestions] = useState<SuggestRelatedEntitiesOutput | null>(null);
   const [isAiLoading, setIsAiLoading] = useState(false);
@@ -74,7 +75,7 @@ export function CustomerFormDialog({ isOpen, onOpenChange, customer, onSave }: C
 
   React.useEffect(() => {
     form.reset(defaultValues);
-    setAiSuggestions(null); // Clear previous suggestions when dialog reopens or customer changes
+    setAiSuggestions(null); 
   }, [defaultValues, form, isOpen]);
 
 
@@ -87,7 +88,7 @@ export function CustomerFormDialog({ isOpen, onOpenChange, customer, onSave }: C
       relatedVendors: data.relatedVendors?.split(',').map(s => s.trim()).filter(Boolean) || [],
     };
     onSave(newCustomerData);
-    onOpenChange(false);
+    // onOpenChange(false); // Dialog close is handled by parent on mutation success/error
   };
 
   const handleGetAiSuggestions = async () => {
@@ -126,7 +127,7 @@ export function CustomerFormDialog({ isOpen, onOpenChange, customer, onSave }: C
 
 
   return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+    <Dialog open={isOpen} onOpenChange={(open) => { if (!isSaving) onOpenChange(open); }}>
       <DialogContent className="sm:max-w-[600px] shadow-xl">
         <DialogHeader>
           <DialogTitle>{customer ? 'Edit Customer' : 'Create New Customer'}</DialogTitle>
@@ -268,8 +269,11 @@ export function CustomerFormDialog({ isOpen, onOpenChange, customer, onSave }: C
                 )}
               />
               <DialogFooter className="pt-6">
-                <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-                <Button type="submit">Save Customer</Button>
+                <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSaving}>Cancel</Button>
+                <Button type="submit" disabled={isSaving}>
+                  {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Save Customer
+                </Button>
               </DialogFooter>
             </form>
           </Form>

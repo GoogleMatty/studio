@@ -29,7 +29,7 @@ import { suggestRelatedEntities, type SuggestRelatedEntitiesOutput } from '@/ai/
 import { AiSuggestions } from '@/components/shared/ai-suggestions';
 import React, { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, Loader2 } from 'lucide-react';
 
 const vendorFormSchema = z.object({
   name: z.string().min(2, { message: 'Name must be at least 2 characters.' }),
@@ -41,7 +41,7 @@ const vendorFormSchema = z.object({
   contactPersonName: z.string().optional(),
   relatedOrganizations: z.string().optional(),
   relatedPeople: z.string().optional(),
-  relatedVendors: z.string().optional(), // Represents other vendors/suppliers/partners
+  relatedVendors: z.string().optional(), 
 });
 
 type VendorFormValues = z.infer<typeof vendorFormSchema>;
@@ -51,9 +51,10 @@ interface VendorFormDialogProps {
   onOpenChange: (isOpen: boolean) => void;
   vendor?: Vendor | null;
   onSave: (vendor: Vendor) => void;
+  isSaving?: boolean;
 }
 
-export function VendorFormDialog({ isOpen, onOpenChange, vendor, onSave }: VendorFormDialogProps) {
+export function VendorFormDialog({ isOpen, onOpenChange, vendor, onSave, isSaving = false }: VendorFormDialogProps) {
   const { toast } = useToast();
   const [aiSuggestions, setAiSuggestions] = useState<SuggestRelatedEntitiesOutput | null>(null);
   const [isAiLoading, setIsAiLoading] = useState(false);
@@ -90,7 +91,7 @@ export function VendorFormDialog({ isOpen, onOpenChange, vendor, onSave }: Vendo
       relatedVendors: data.relatedVendors?.split(',').map(s => s.trim()).filter(Boolean) || [],
     };
     onSave(newVendorData);
-    onOpenChange(false);
+    // onOpenChange(false); // Dialog close is handled by parent on mutation success/error
   };
 
   const handleGetAiSuggestions = async () => {
@@ -107,7 +108,7 @@ export function VendorFormDialog({ isOpen, onOpenChange, vendor, onSave }: Vendo
     setIsAiLoading(true);
     setAiSuggestions(null);
     try {
-      const result = await suggestRelatedEntities({ customerData: vendorDataForAI }); // Reusing existing flow
+      const result = await suggestRelatedEntities({ customerData: vendorDataForAI }); 
       setAiSuggestions(result);
     } catch (error) {
       console.error('AI Suggestion Error:', error);
@@ -128,7 +129,7 @@ export function VendorFormDialog({ isOpen, onOpenChange, vendor, onSave }: Vendo
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+    <Dialog open={isOpen} onOpenChange={(open) => { if (!isSaving) onOpenChange(open); }}>
       <DialogContent className="sm:max-w-[600px] shadow-xl">
         <DialogHeader>
           <DialogTitle>{vendor ? 'Edit Vendor' : 'Create New Vendor'}</DialogTitle>
@@ -298,8 +299,11 @@ export function VendorFormDialog({ isOpen, onOpenChange, vendor, onSave }: Vendo
                 )}
               />
               <DialogFooter className="pt-6">
-                <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-                <Button type="submit" className="bg-vendor-primary hover:bg-vendor-primary/90 text-vendor-primary-foreground">Save Vendor</Button>
+                <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSaving}>Cancel</Button>
+                <Button type="submit" className="bg-vendor-primary hover:bg-vendor-primary/90 text-vendor-primary-foreground" disabled={isSaving}>
+                  {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Save Vendor
+                  </Button>
               </DialogFooter>
             </form>
           </Form>

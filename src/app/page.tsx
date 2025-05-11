@@ -1,11 +1,21 @@
 
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import type { Customer } from '@/types/customer';
 import type { Vendor } from '@/types/vendor';
-import { getCustomers, saveCustomers } from '@/lib/customer-data';
-import { getVendors, saveVendors } from '@/lib/vendor-data';
+import {
+  getCustomersFirestore,
+  addCustomerFirestore,
+  updateCustomerFirestore,
+  deleteCustomerFirestore,
+} from '@/lib/customer-data';
+import {
+  getVendorsFirestore,
+  addVendorFirestore,
+  updateVendorFirestore,
+  deleteVendorFirestore,
+} from '@/lib/vendor-data';
 import { MainLayout } from '@/components/layout/main-layout';
 import { CustomerList } from '@/components/customers/customer-list';
 import { CustomerFormDialog } from '@/components/customers/customer-form-dialog';
@@ -15,14 +25,18 @@ import { VendorFormDialog } from '@/components/vendors/vendor-form-dialog';
 import { DeleteVendorDialog } from '@/components/vendors/delete-vendor-dialog';
 import { Input } from '@/components/ui/input';
 import { useToast } from "@/hooks/use-toast";
-import { Search } from 'lucide-react';
+import { Search, Loader2 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Skeleton } from '@/components/ui/skeleton';
+
 
 type ActiveTab = 'customers' | 'vendors';
 
 export default function HomePage() {
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [vendors, setVendors] = useState<Vendor[]>([]);
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState<ActiveTab>('customers');
 
@@ -37,28 +51,100 @@ export default function HomePage() {
   const [editingVendor, setEditingVendor] = useState<Vendor | null>(null);
   const [isDeleteVendorDialogOpen, setIsDeleteVendorDialogOpen] = useState(false);
   const [deletingVendorId, setDeletingVendorId] = useState<string | null>(null);
-  
-  const { toast } = useToast();
 
-  // Load data from localStorage on initial render
-  useEffect(() => {
-    setCustomers(getCustomers());
-    setVendors(getVendors());
-  }, []);
+  // Data fetching with React Query
+  const { data: customers = [], isLoading: isLoadingCustomers, error: customersError } = useQuery<Customer[], Error>({
+    queryKey: ['customers'],
+    queryFn: getCustomersFirestore,
+  });
 
-  // Persist customers
-  useEffect(() => {
-    if (customers.length > 0 || localStorage.getItem('tradeflow_customers')) {
-        saveCustomers(customers);
-    }
-  }, [customers]);
+  const { data: vendors = [], isLoading: isLoadingVendors, error: vendorsError } = useQuery<Vendor[], Error>({
+    queryKey: ['vendors'],
+    queryFn: getVendorsFirestore,
+  });
 
-  // Persist vendors
-  useEffect(() => {
-    if (vendors.length > 0 || localStorage.getItem('tradeflow_vendors')) {
-        saveVendors(vendors);
-    }
-  }, [vendors]);
+  // Mutations for Customers
+  const addCustomerMutation = useMutation({
+    mutationFn: addCustomerFirestore,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['customers'] });
+      toast({ title: "Customer Created", description: "New customer has been successfully added." });
+      setIsCustomerFormOpen(false);
+      setEditingCustomer(null);
+    },
+    onError: (error) => {
+      toast({ title: "Error", description: `Failed to create customer: ${error.message}`, variant: "destructive" });
+    },
+  });
+
+  const updateCustomerMutation = useMutation({
+    mutationFn: updateCustomerFirestore,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['customers'] });
+      toast({ title: "Customer Updated", description: "Customer details have been successfully updated." });
+      setIsCustomerFormOpen(false);
+      setEditingCustomer(null);
+    },
+    onError: (error) => {
+      toast({ title: "Error", description: `Failed to update customer: ${error.message}`, variant: "destructive" });
+    },
+  });
+
+  const deleteCustomerMutation = useMutation({
+    mutationFn: deleteCustomerFirestore,
+    onSuccess: (_, deletedCustomerId) => {
+      queryClient.invalidateQueries({ queryKey: ['customers'] });
+      const deletedCustomerName = customers.find(c => c.id === deletedCustomerId)?.name || 'The customer';
+      toast({ title: "Customer Deleted", description: `${deletedCustomerName} has been deleted.`, variant: "destructive" });
+      setIsDeleteCustomerDialogOpen(false);
+      setDeletingCustomerId(null);
+    },
+    onError: (error) => {
+      toast({ title: "Error", description: `Failed to delete customer: ${error.message}`, variant: "destructive" });
+    },
+  });
+
+  // Mutations for Vendors
+   const addVendorMutation = useMutation({
+    mutationFn: addVendorFirestore,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['vendors'] });
+      toast({ title: "Vendor Created", description: "New vendor has been successfully added." });
+      setIsVendorFormOpen(false);
+      setEditingVendor(null);
+    },
+    onError: (error) => {
+      toast({ title: "Error", description: `Failed to create vendor: ${error.message}`, variant: "destructive" });
+    },
+  });
+
+  const updateVendorMutation = useMutation({
+    mutationFn: updateVendorFirestore,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['vendors'] });
+      toast({ title: "Vendor Updated", description: "Vendor details have been successfully updated." });
+      setIsVendorFormOpen(false);
+      setEditingVendor(null);
+    },
+    onError: (error) => {
+      toast({ title: "Error", description: `Failed to update vendor: ${error.message}`, variant: "destructive" });
+    },
+  });
+
+  const deleteVendorMutation = useMutation({
+    mutationFn: deleteVendorFirestore,
+    onSuccess: (_, deletedVendorId) => {
+      queryClient.invalidateQueries({ queryKey: ['vendors'] });
+      const deletedVendorName = vendors.find(v => v.id === deletedVendorId)?.name || 'The vendor';
+      toast({ title: "Vendor Deleted", description: `${deletedVendorName} has been deleted.`, variant: "destructive" });
+      setIsDeleteVendorDialogOpen(false);
+      setDeletingVendorId(null);
+    },
+    onError: (error) => {
+      toast({ title: "Error", description: `Failed to delete vendor: ${error.message}`, variant: "destructive" });
+    },
+  });
+
 
   const handleCreateEntity = () => {
     if (activeTab === 'customers') {
@@ -77,22 +163,11 @@ export default function HomePage() {
   };
 
   const handleSaveCustomer = (customerData: Customer) => {
-    setCustomers(prevCustomers => {
-      const existingIndex = prevCustomers.findIndex(c => c.id === customerData.id);
-      if (existingIndex > -1) {
-        const updatedCustomers = [...prevCustomers];
-        updatedCustomers[existingIndex] = customerData;
-        return updatedCustomers;
-      } else {
-        return [customerData, ...prevCustomers];
-      }
-    });
-    toast({
-      title: customerData.id === editingCustomer?.id ? "Customer Updated" : "Customer Created",
-      description: `${customerData.name} has been successfully saved.`,
-    });
-    setIsCustomerFormOpen(false);
-    setEditingCustomer(null);
+    if (editingCustomer && customerData.id === editingCustomer.id) {
+      updateCustomerMutation.mutate(customerData);
+    } else {
+      addCustomerMutation.mutate(customerData);
+    }
   };
 
   const handleDeleteCustomer = (customerId: string) => {
@@ -102,15 +177,7 @@ export default function HomePage() {
 
   const confirmDeleteCustomer = () => {
     if (!deletingCustomerId) return;
-    const customerToDelete = customers.find(c => c.id === deletingCustomerId);
-    setCustomers(prevCustomers => prevCustomers.filter(c => c.id !== deletingCustomerId));
-    toast({
-      title: "Customer Deleted",
-      description: `${customerToDelete?.name || 'The customer'} has been deleted.`,
-      variant: "destructive",
-    });
-    setIsDeleteCustomerDialogOpen(false);
-    setDeletingCustomerId(null);
+    deleteCustomerMutation.mutate(deletingCustomerId);
   };
 
   // Vendor handlers
@@ -120,22 +187,11 @@ export default function HomePage() {
   };
 
   const handleSaveVendor = (vendorData: Vendor) => {
-    setVendors(prevVendors => {
-      const existingIndex = prevVendors.findIndex(v => v.id === vendorData.id);
-      if (existingIndex > -1) {
-        const updatedVendors = [...prevVendors];
-        updatedVendors[existingIndex] = vendorData;
-        return updatedVendors;
-      } else {
-        return [vendorData, ...prevVendors];
-      }
-    });
-    toast({
-      title: vendorData.id === editingVendor?.id ? "Vendor Updated" : "Vendor Created",
-      description: `${vendorData.name} has been successfully saved.`,
-    });
-    setIsVendorFormOpen(false);
-    setEditingVendor(null);
+     if (editingVendor && vendorData.id === editingVendor.id) {
+      updateVendorMutation.mutate(vendorData);
+    } else {
+      addVendorMutation.mutate(vendorData);
+    }
   };
 
   const handleDeleteVendor = (vendorId: string) => {
@@ -145,15 +201,7 @@ export default function HomePage() {
 
   const confirmDeleteVendor = () => {
     if (!deletingVendorId) return;
-    const vendorToDelete = vendors.find(v => v.id === deletingVendorId);
-    setVendors(prevVendors => prevVendors.filter(v => v.id !== deletingVendorId));
-    toast({
-      title: "Vendor Deleted",
-      description: `${vendorToDelete?.name || 'The vendor'} has been deleted.`,
-      variant: "destructive",
-    });
-    setIsDeleteVendorDialogOpen(false);
-    setDeletingVendorId(null);
+    deleteVendorMutation.mutate(deletingVendorId);
   };
 
   const filteredCustomers = useMemo(() => {
@@ -179,6 +227,25 @@ export default function HomePage() {
   const customerToDeleteName = useMemo(() => customers.find(c => c.id === deletingCustomerId)?.name, [customers, deletingCustomerId]);
   const vendorToDeleteName = useMemo(() => vendors.find(v => v.id === deletingVendorId)?.name, [vendors, deletingVendorId]);
 
+  const renderLoadingSkeletons = (count = 3) => (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {Array.from({ length: count }).map((_, index) => (
+        <div key={index} className="flex flex-col space-y-3 p-4 border rounded-lg shadow-md">
+          <Skeleton className="h-6 w-3/4" />
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-1/2" />
+          <div className="space-y-2 pt-2">
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-full" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
+  if (customersError) return <p className="text-destructive text-center p-4">Error loading customers: {customersError.message}</p>;
+  if (vendorsError) return <p className="text-destructive text-center p-4">Error loading vendors: {vendorsError.message}</p>;
+
   return (
     <MainLayout activeEntityType={activeTab} onCreateEntity={handleCreateEntity}>
       <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as ActiveTab)} className="w-full">
@@ -200,18 +267,22 @@ export default function HomePage() {
         </div>
 
         <TabsContent value="customers">
-          <CustomerList
-            customers={filteredCustomers}
-            onEditCustomer={handleEditCustomer}
-            onDeleteCustomer={handleDeleteCustomer}
-          />
+          {isLoadingCustomers ? renderLoadingSkeletons() : (
+            <CustomerList
+              customers={filteredCustomers}
+              onEditCustomer={handleEditCustomer}
+              onDeleteCustomer={handleDeleteCustomer}
+            />
+          )}
         </TabsContent>
         <TabsContent value="vendors">
-          <VendorList
-            vendors={filteredVendors}
-            onEditVendor={handleEditVendor}
-            onDeleteVendor={handleDeleteVendor}
-          />
+          {isLoadingVendors ? renderLoadingSkeletons() : (
+            <VendorList
+              vendors={filteredVendors}
+              onEditVendor={handleEditVendor}
+              onDeleteVendor={handleDeleteVendor}
+            />
+          )}
         </TabsContent>
       </Tabs>
 
@@ -220,12 +291,14 @@ export default function HomePage() {
         onOpenChange={setIsCustomerFormOpen}
         customer={editingCustomer}
         onSave={handleSaveCustomer}
+        isSaving={addCustomerMutation.isPending || updateCustomerMutation.isPending}
       />
       <DeleteCustomerDialog
         isOpen={isDeleteCustomerDialogOpen}
         onOpenChange={setIsDeleteCustomerDialogOpen}
         onConfirmDelete={confirmDeleteCustomer}
         customerName={customerToDeleteName}
+        isDeleting={deleteCustomerMutation.isPending}
       />
 
       <VendorFormDialog
@@ -233,12 +306,14 @@ export default function HomePage() {
         onOpenChange={setIsVendorFormOpen}
         vendor={editingVendor}
         onSave={handleSaveVendor}
+        isSaving={addVendorMutation.isPending || updateVendorMutation.isPending}
       />
       <DeleteVendorDialog
         isOpen={isDeleteVendorDialogOpen}
         onOpenChange={setIsDeleteVendorDialogOpen}
         onConfirmDelete={confirmDeleteVendor}
         vendorName={vendorToDeleteName}
+        isDeleting={deleteVendorMutation.isPending}
       />
     </MainLayout>
   );
