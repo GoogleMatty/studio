@@ -47,6 +47,12 @@ body {
     --sidebar-accent-foreground: 240 5.9% 10%;
     --sidebar-border: 220 13% 91%;
     --sidebar-ring: 217.2 91.2% 59.8%;
+
+    /* Vendor specific colors */
+    --vendor-primary: 120 60% 70%; /* Pastel Green */
+    --vendor-primary-foreground: 120 25% 10%; /* Dark Green for text on pastel green */
+    --vendor-accent: 120 60% 90%; /* Light Pastel Green */
+    --vendor-accent-foreground: 120 25% 10%; /* Dark Green for text on light pastel green */
   }
 
   .dark {
@@ -87,6 +93,12 @@ body {
     --sidebar-accent-foreground: 240 4.8% 95.9%;
     --sidebar-border: 240 3.7% 15.9%;
     --sidebar-ring: 217.2 91.2% 59.8%;
+
+    /* Vendor specific colors - Dark mode */
+    --vendor-primary: 120 50% 30%; /* Darker Pastel Green */
+    --vendor-primary-foreground: 120 80% 95%; /* Light text for dark pastel green */
+    --vendor-accent: 120 50% 20%; /* Very Dark Pastel Green for accents */
+    --vendor-accent-foreground: 120 70% 85%; /* Lighter text for dark accents */
   }
 }
 

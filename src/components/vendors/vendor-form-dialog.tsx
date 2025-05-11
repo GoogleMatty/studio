@@ -4,7 +4,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
-import type { Customer } from '@/types/customer';
+import type { Vendor } from '@/types/vendor';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -26,72 +26,75 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { suggestRelatedEntities, type SuggestRelatedEntitiesOutput } from '@/ai/flows/suggest-related-entities';
-import { AiSuggestions } from '@/components/shared/ai-suggestions'; // Updated import path
+import { AiSuggestions } from '@/components/shared/ai-suggestions';
 import React, { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { Sparkles } from 'lucide-react';
 
-const customerFormSchema = z.object({
+const vendorFormSchema = z.object({
   name: z.string().min(2, { message: 'Name must be at least 2 characters.' }),
   email: z.string().email({ message: 'Invalid email address.' }),
   phone: z.string().optional(),
   address: z.string().optional(),
   notes: z.string().optional(),
-  relatedOrganizations: z.string().optional(), // Store as comma-separated string in form
+  industry: z.string().optional(),
+  contactPersonName: z.string().optional(),
+  relatedOrganizations: z.string().optional(),
   relatedPeople: z.string().optional(),
-  relatedVendors: z.string().optional(),
+  relatedVendors: z.string().optional(), // Represents other vendors/suppliers/partners
 });
 
-type CustomerFormValues = z.infer<typeof customerFormSchema>;
+type VendorFormValues = z.infer<typeof vendorFormSchema>;
 
-interface CustomerFormDialogProps {
+interface VendorFormDialogProps {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
-  customer?: Customer | null;
-  onSave: (customer: Customer) => void;
+  vendor?: Vendor | null;
+  onSave: (vendor: Vendor) => void;
 }
 
-export function CustomerFormDialog({ isOpen, onOpenChange, customer, onSave }: CustomerFormDialogProps) {
+export function VendorFormDialog({ isOpen, onOpenChange, vendor, onSave }: VendorFormDialogProps) {
   const { toast } = useToast();
   const [aiSuggestions, setAiSuggestions] = useState<SuggestRelatedEntitiesOutput | null>(null);
   const [isAiLoading, setIsAiLoading] = useState(false);
 
   const defaultValues = React.useMemo(() => ({
-    name: customer?.name || '',
-    email: customer?.email || '',
-    phone: customer?.phone || '',
-    address: customer?.address || '',
-    notes: customer?.notes || '',
-    relatedOrganizations: customer?.relatedOrganizations?.join(', ') || '',
-    relatedPeople: customer?.relatedPeople?.join(', ') || '',
-    relatedVendors: customer?.relatedVendors?.join(', ') || '',
-  }), [customer]);
+    name: vendor?.name || '',
+    email: vendor?.email || '',
+    phone: vendor?.phone || '',
+    address: vendor?.address || '',
+    notes: vendor?.notes || '',
+    industry: vendor?.industry || '',
+    contactPersonName: vendor?.contactPersonName || '',
+    relatedOrganizations: vendor?.relatedOrganizations?.join(', ') || '',
+    relatedPeople: vendor?.relatedPeople?.join(', ') || '',
+    relatedVendors: vendor?.relatedVendors?.join(', ') || '',
+  }), [vendor]);
 
-  const form = useForm<CustomerFormValues>({
-    resolver: zodResolver(customerFormSchema),
+  const form = useForm<VendorFormValues>({
+    resolver: zodResolver(vendorFormSchema),
     defaultValues,
   });
 
   React.useEffect(() => {
     form.reset(defaultValues);
-    setAiSuggestions(null); // Clear previous suggestions when dialog reopens or customer changes
+    setAiSuggestions(null);
   }, [defaultValues, form, isOpen]);
 
-
-  const onSubmit = (data: CustomerFormValues) => {
-    const newCustomerData: Customer = {
-      id: customer?.id || crypto.randomUUID(),
+  const onSubmit = (data: VendorFormValues) => {
+    const newVendorData: Vendor = {
+      id: vendor?.id || crypto.randomUUID(),
       ...data,
       relatedOrganizations: data.relatedOrganizations?.split(',').map(s => s.trim()).filter(Boolean) || [],
       relatedPeople: data.relatedPeople?.split(',').map(s => s.trim()).filter(Boolean) || [],
       relatedVendors: data.relatedVendors?.split(',').map(s => s.trim()).filter(Boolean) || [],
     };
-    onSave(newCustomerData);
+    onSave(newVendorData);
     onOpenChange(false);
   };
 
   const handleGetAiSuggestions = async () => {
-    const customerDataForAI = `Name: ${form.getValues('name')}, Email: ${form.getValues('email')}, Address: ${form.getValues('address')}, Notes: ${form.getValues('notes')}`;
+    const vendorDataForAI = `Vendor Name: ${form.getValues('name')}, Email: ${form.getValues('email')}, Address: ${form.getValues('address')}, Notes: ${form.getValues('notes')}, Industry: ${form.getValues('industry')}`;
     if (!form.getValues('name') && !form.getValues('notes')) {
       toast({
         title: "Input Needed for AI",
@@ -104,7 +107,7 @@ export function CustomerFormDialog({ isOpen, onOpenChange, customer, onSave }: C
     setIsAiLoading(true);
     setAiSuggestions(null);
     try {
-      const result = await suggestRelatedEntities({ customerData: customerDataForAI });
+      const result = await suggestRelatedEntities({ customerData: vendorDataForAI }); // Reusing existing flow
       setAiSuggestions(result);
     } catch (error) {
       console.error('AI Suggestion Error:', error);
@@ -118,20 +121,19 @@ export function CustomerFormDialog({ isOpen, onOpenChange, customer, onSave }: C
     }
   };
   
-  const addSuggestionToField = (fieldName: keyof CustomerFormValues, suggestion: string) => {
+  const addSuggestionToField = (fieldName: keyof VendorFormValues, suggestion: string) => {
     const currentValue = form.getValues(fieldName) || '';
     const newValue = currentValue ? `${currentValue}, ${suggestion}` : suggestion;
     form.setValue(fieldName, newValue, { shouldValidate: true });
   };
 
-
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px] shadow-xl">
         <DialogHeader>
-          <DialogTitle>{customer ? 'Edit Customer' : 'Create New Customer'}</DialogTitle>
+          <DialogTitle>{vendor ? 'Edit Vendor' : 'Create New Vendor'}</DialogTitle>
           <DialogDescription>
-            {customer ? 'Update the details for this customer.' : 'Fill in the form to add a new customer.'}
+            {vendor ? 'Update the details for this vendor.' : 'Fill in the form to add a new vendor.'}
           </DialogDescription>
         </DialogHeader>
         <ScrollArea className="max-h-[calc(100vh-200px)] pr-6">
@@ -145,7 +147,7 @@ export function CustomerFormDialog({ isOpen, onOpenChange, customer, onSave }: C
                     <FormItem>
                       <FormLabel>Name</FormLabel>
                       <FormControl>
-                        <Input placeholder="e.g., Acme Corp" {...field} />
+                        <Input placeholder="e.g., SupplyCo Inc." {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -158,21 +160,49 @@ export function CustomerFormDialog({ isOpen, onOpenChange, customer, onSave }: C
                     <FormItem>
                       <FormLabel>Email</FormLabel>
                       <FormControl>
-                        <Input type="email" placeholder="e.g., contact@acme.com" {...field} />
+                        <Input type="email" placeholder="e.g., sales@supplyco.com" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
               </div>
-              <FormField
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="phone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Phone (Optional)</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g., 555-000-1111" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                 <FormField
+                  control={form.control}
+                  name="industry"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Industry (Optional)</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g., Manufacturing, Logistics" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+               <FormField
                 control={form.control}
-                name="phone"
+                name="contactPersonName"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Phone (Optional)</FormLabel>
+                    <FormLabel>Contact Person (Optional)</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g., 555-123-4567" {...field} />
+                      <Input placeholder="e.g., Jane Doe" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -185,7 +215,7 @@ export function CustomerFormDialog({ isOpen, onOpenChange, customer, onSave }: C
                   <FormItem>
                     <FormLabel>Address (Optional)</FormLabel>
                     <FormControl>
-                      <Textarea placeholder="e.g., 123 Main St, Anytown, USA" {...field} />
+                      <Textarea placeholder="e.g., 456 Supply Rd, Factoria" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -198,7 +228,7 @@ export function CustomerFormDialog({ isOpen, onOpenChange, customer, onSave }: C
                   <FormItem>
                     <FormLabel>Notes (Optional)</FormLabel>
                     <FormControl>
-                      <Textarea placeholder="Any relevant notes about the customer..." {...field} rows={3} />
+                      <Textarea placeholder="Any relevant notes about the vendor..." {...field} rows={3} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -214,7 +244,7 @@ export function CustomerFormDialog({ isOpen, onOpenChange, customer, onSave }: C
                     </Button>
                  </div>
                  <p className="text-sm text-muted-foreground">
-                    Optionally, list related organizations, people, or vendors. Use AI to get suggestions based on customer data.
+                    Optionally, list related organizations, people, or other vendors/partners. Use AI for suggestions.
                  </p>
               </div>
               
@@ -235,7 +265,7 @@ export function CustomerFormDialog({ isOpen, onOpenChange, customer, onSave }: C
                   <FormItem>
                     <FormLabel>Related Organizations (comma-separated)</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g., Org A, Org B" {...field} />
+                      <Input placeholder="e.g., Industry Group A, Association B" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -248,7 +278,7 @@ export function CustomerFormDialog({ isOpen, onOpenChange, customer, onSave }: C
                   <FormItem>
                     <FormLabel>Related People (comma-separated)</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g., John Doe, Jane Smith" {...field} />
+                      <Input placeholder="e.g., Key Contact X, Advisor Y" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -259,9 +289,9 @@ export function CustomerFormDialog({ isOpen, onOpenChange, customer, onSave }: C
                 name="relatedVendors"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Related Vendors (comma-separated)</FormLabel>
+                    <FormLabel>Related Vendors/Partners (comma-separated)</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g., Partner X, Supplier Y" {...field} />
+                      <Input placeholder="e.g., Supplier A, Partner B" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -269,7 +299,7 @@ export function CustomerFormDialog({ isOpen, onOpenChange, customer, onSave }: C
               />
               <DialogFooter className="pt-6">
                 <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-                <Button type="submit">Save Customer</Button>
+                <Button type="submit" className="bg-vendor-primary hover:bg-vendor-primary/90 text-vendor-primary-foreground">Save Vendor</Button>
               </DialogFooter>
             </form>
           </Form>

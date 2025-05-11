@@ -1,15 +1,17 @@
+
 import type { ReactNode } from 'react';
 import { AppHeader } from './app-header';
 
 interface MainLayoutProps {
   children: ReactNode;
-  onCreateCustomer: () => void;
+  activeEntityType: 'customer' | 'vendor';
+  onCreateEntity: () => void;
 }
 
-export function MainLayout({ children, onCreateCustomer }: MainLayoutProps) {
+export function MainLayout({ children, activeEntityType, onCreateEntity }: MainLayoutProps) {
   return (
     <div className="flex min-h-screen flex-col">
-      <AppHeader onCreateCustomer={onCreateCustomer} />
+      <AppHeader activeEntityType={activeEntityType} onCreateEntity={onCreateEntity} />
       <main className="flex-1">
         <div className="container py-8">
           {children}

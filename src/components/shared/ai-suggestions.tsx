@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { SuggestRelatedEntitiesOutput } from '@/ai/flows/suggest-related-entities';
@@ -44,7 +45,7 @@ export function AiSuggestions({ suggestions, isLoading, onAddSuggestion }: AiSug
                 variant="ghost"
                 onClick={() => onAddSuggestion(type, item)}
                 className="h-6 px-1.5 text-xs"
-                title={`Add ${item} to ${type}`}
+                title={`Add ${item} to ${type === 'vendors' ? 'related vendors' : type}`}
               >
                 Add
               </Button>
